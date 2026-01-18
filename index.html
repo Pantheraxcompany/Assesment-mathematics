@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ujian MTK Soal Cerita - Secure Mode</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --danger: #EF4444;
+            --warning: #F59E0B;
+            --bg: #F8FAFC;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Roboto', sans-serif; background: var(--bg); margin: 0; user-select: none; }
+
+        /* LAYAR AWAL (LOBBY) */
+        #lobby-screen {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: #fff; z-index: 2000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 20px; text-align: center;
+        }
+        .start-btn {
+            background: var(--primary); color: #fff; border: none; padding: 15px 40px;
+            font-size: 1.2rem; border-radius: 50px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); margin-top: 20px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0% {transform: scale(1);} 50% {transform: scale(1.05);} 100% {transform: scale(1);} }
+
+        /* LAYAR UTAMA UJIAN */
+        #exam-app { display: none; padding-bottom: 80px; }
+
+        /* HEADER */
+        .header {
+            background: #fff; padding: 15px; position: sticky; top: 0; z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;
+        }
+        .timer { background: #1E293B; color: #fbbf24; padding: 5px 12px; border-radius: 6px; font-weight: bold; font-family: monospace; font-size: 1.1rem; }
+        .violation-counter { color: var(--danger); font-weight: bold; font-size: 0.9rem; }
+
+        .container { max-width: 800px; margin: 20px auto; padding: 0 15px; }
+
+        /* CARD STYLE */
+        .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .input-box { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; margin-top: 5px; font-size: 1rem; }
+
+        /* SOAL CERITA */
+        .q-text { font-size: 1.1rem; line-height: 1.6; margin-bottom: 15px; color: #334155; }
+        .highlight { color: var(--primary); font-weight: bold; }
+
+        /* PILIHAN GANDA */
+        .opt-grid { display: grid; gap: 10px; }
+        @media(min-width:600px) { .opt-grid { grid-template-columns: 1fr 1fr; } }
+        
+        .opt-btn {
+            border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; cursor: pointer;
+            display: flex; align-items: center; transition: 0.2s;
+        }
+        .opt-btn:hover { background: #f1f5f9; border-color: var(--primary); }
+        .opt-btn.selected { background: #e0e7ff; border-color: var(--primary); }
+        .circle { 
+            width: 30px; height: 30px; border-radius: 50%; border: 2px solid #cbd5e1; 
+            display: flex; align-items: center; justify-content: center; margin-right: 12px; 
+            font-weight: bold; color: #94a3b8; flex-shrink: 0; 
+        }
+        .opt-btn.selected .circle { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+        /* SUBMIT BAR */
+        .submit-bar {
+            position: fixed; bottom: 0; left: 0; right: 0; background: #fff; padding: 15px;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.05); text-align: right; z-index: 99;
+        }
+        .btn-finish { background: var(--primary); color: #fff; border: none; padding: 12px 30px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+        /* WARNING OVERLAY (ANTI-CHEAT) */
+        #warning-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(220, 38, 38, 0.95);
+            z-index: 3000; display: none; flex-direction: column; align-items: center; justify-content: center; color: #fff; text-align: center;
+        }
+        .warn-icon { font-size: 80px; margin-bottom: 20px; }
+        .warn-title { font-size: 2rem; font-weight: 800; margin-bottom: 10px; }
+
+        /* MODAL RESULT */
+        .modal-bg {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5);
+            display: none; align-items: center; justify-content: center; z-index: 4000;
+        }
+        .modal-box { background: #fff; width: 90%; max-width: 400px; padding: 25px; border-radius: 12px; text-align: center; }
+        .score-display { font-size: 3rem; font-weight: 800; color: var(--primary); }
+        .btn-wa { background: #25D366; color: white; width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; margin-top: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+    </style>
+</head>
+<body>
+
+    <div id="lobby-screen">
+        <h1 style="color:var(--primary);">Ujian Matematika Online</h1>
+        <p style="color:#64748B;">Soal Cerita (100 Butir) - 60 Menit</p>
+        <div style="background:#FEF2F2; color:#DC2626; padding:15px; border-radius:8px; margin:20px 0; max-width:400px; font-size:0.9rem;">
+            ⚠️ <b>PERINGATAN KEAMANAN:</b><br>
+            Jangan keluar dari aplikasi, pindah tab, atau membuka notifikasi.<br>
+            Sistem akan mendeteksi kecurangan dan ujian bisa dihentikan otomatis.
+        </div>
+        <button class="start-btn" onclick="mulaiUjian()">MULAI UJIAN SEKARANG</button>
+    </div>
+
+    <div id="warning-overlay">
+        <div class="warn-icon">🚫</div>
+        <div class="warn-title">PELANGGARAN TERDETEKSI!</div>
+        <p>Anda mencoba meninggalkan halaman ujian.</p>
+        <p>Kembali fokus sekarang atau nilai Anda akan hangus!</p>
+        <button onclick="resumeUjian()" style="background:white; color:red; padding:10px 30px; border:none; border-radius:50px; font-weight:bold; font-size:1.2rem; margin-top:20px; cursor:pointer;">KEMBALI KE UJIAN</button>
+    </div>
+
+    <div id="exam-app">
+        <div class="header">
+            <div class="violation-counter" id="violation-msg">Pelanggaran: 0/3</div>
+            <div class="timer" id="timer">60:00</div>
+        </div>
+
+        <div class="container">
+            <div class="card">
+                <h3>Identitas Peserta</h3>
+                <label>Nama Lengkap</label>
+                <input type="text" id="nama" class="input-box" placeholder="Nama siswa...">
+                <label style="margin-top:10px; display:block;">Kelas</label>
+                <input type="text" id="kelas" class="input-box" placeholder="Contoh: 6 SD">
+            </div>
+
+            <div id="soal-container"></div>
+        </div>
+
+        <div class="submit-bar">
+            <button class="btn-finish" onclick="submitUjian()">Kirim Jawaban</button>
+        </div>
+    </div>
+
+    <div class="modal-bg" id="resultModal">
+        <div class="modal-box">
+            <h2>Hasil Ujian</h2>
+            <div class="score-display" id="scoreVal">0</div>
+            <p>Skor Akhir</p>
+            <div style="text-align:left; border-top:1px solid #eee; padding-top:10px; margin-top:10px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Nama:</span> <b id="outNama">-</b></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Benar:</span> <b id="outBenar" style="color:green">0</b></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Salah:</span> <b id="outSalah" style="color:red">0</b></div>
+                <div style="display:flex; justify-content:space-between;"><span>Pelanggaran:</span> <b id="outWarn" style="color:orange">0</b></div>
+            </div>
+            <button class="btn-wa" onclick="kirimWA()">
+                <svg width="20" height="20" fill="white" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.654-.698c.997.545 2.127.838 3.298.838 3.18 0 5.765-2.586 5.765-5.766.001-3.18-2.585-5.766-5.766-5.766zm-9.397 10.999l1.625-5.945c-.482-1.373-.74-2.839-.74-4.364 0-7.388 6.012-13.401 13.401-13.401 7.391 0 13.403 6.014 13.403 13.403 0 7.389-6.012 13.402-13.403 13.402-2.368 0-4.636-.615-6.64-1.78l-6.191 1.624 1.545-2.939zm22.8-10.999c0-5.733-4.668-10.401-10.403-10.401-5.734 0-10.401 4.668-10.401 10.401 0 2.062.605 4.025 1.705 5.73l-1.121 4.102 4.188-1.099c1.649 1.002 3.535 1.567 5.629 1.567 5.735 0 10.403-4.668 10.403-10.401z"/></svg>
+                Lapor ke Guru
+            </button>
+        </div>
+    </div>
+
+<script>
+    // === DATA NAMA & ITEM UNTUK SOAL CERITA ===
+    const names = ["Budi", "Siti", "Ahmad", "Dewi", "Rudi", "Ani", "Eko", "Putri", "Bayu", "Lina"];
+    const items = ["apel", "buku", "kelereng", "permen", "pensil", "jeruk", "kue", "donat"];
+    const units = ["kg", "liter", "meter", "potong"];
+
+    // === GENERATOR SOAL CERITA OTOMATIS (100 SOAL) ===
+    let bankSoal = [];
+
+    function generateBankSoal() {
+        for(let i=1; i<=100; i++) {
+            let data = {};
+            let tipe = Math.floor(Math.random() * 4); // 0-3
+            let name = names[Math.floor(Math.random() * names.length)];
+            let item = items[Math.floor(Math.random() * items.length)];
+            
+            // Tipe 0: Bilangan Bulat (+ / -)
+            if(tipe === 0) {
+                let a = Math.floor(Math.random() * 50) + 20;
+                let b = Math.floor(Math.random() * 15) + 5;
+                if(Math.random() > 0.5) {
+                    data.txt = `${name} memiliki <span class="highlight">${a}</span> ${item}. Kemudian ibunya memberikan lagi <span class="highlight">${b}</span> ${item}. Berapa total ${item} ${name} sekarang?`;
+                    data.ans = a + b;
+                } else {
+                    data.txt = `${name} memiliki <span class="highlight">${a}</span> ${item}. Ia memberikan <span class="highlight">${b}</span> ${item} kepada adiknya. Berapa sisa ${item} ${name}?`;
+                    data.ans = a - b;
+                }
+            } 
+            // Tipe 1: Perkalian / Pembagian (Soal Cerita)
+            else if(tipe === 1) {
+                if(Math.random() > 0.5) {
+                    let box = Math.floor(Math.random() * 8) + 3;
+                    let isi = Math.floor(Math.random() * 10) + 5;
+                    data.txt = `${name} membeli <span class="highlight">${box}</span> kotak donat. Setiap kotak berisi <span class="highlight">${isi}</span> donat. Berapa jumlah total donat?`;
+                    data.ans = box * isi;
+                } else {
+                    let total = Math.floor(Math.random() * 50) + 20;
+                    // Pastikan habis dibagi
+                    let bagi = [2,4,5,10][Math.floor(Math.random()*4)];
+                    total = total - (total % bagi); 
+                    if(total===0) total = 20;
+
+                    data.txt = `Ibu memiliki <span class="highlight">${total}</span> permen yang akan dibagikan rata kepada <span class="highlight">${bagi}</span> orang anak. Berapa permen yang diterima setiap anak?`;
+                    data.ans = total / bagi;
+                }
+            }
+            // Tipe 2: Pecahan Sederhana (Penjumlahan/Pengurangan)
+            else if(tipe === 2) {
+                let unit = units[Math.floor(Math.random() * units.length)];
+                let a = Math.floor(Math.random() * 5) + 1;
+                let b = 0.5; // Setengah
+                
+                if(Math.random() > 0.5) {
+                    data.txt = `${name} membeli <span class="highlight">${a}</span> ${unit} gula pasir, kemudian membeli lagi <span class="highlight">0,5</span> ${unit}. Berapa ${unit} total gula pasir ${name}?`;
+                    data.ans = a + 0.5;
+                } else {
+                    let start = a + 1;
+                    data.txt = `Di dapur ada <span class="highlight">${start}</span> ${unit} minyak goreng. Ibu memakai <span class="highlight">0,5</span> ${unit} untuk menggoreng. Sisa minyak adalah...`;
+                    data.ans = start - 0.5;
+                }
+            }
+            // Tipe 3: Pecahan (Perkalian konteks)
+            else {
+                let total = Math.floor(Math.random() * 20) + 10;
+                // Genapkan supaya mudah dibagi 2 atau 4
+                total = total - (total % 4); 
+                if(total===0) total = 12;
+
+                if(Math.random() > 0.5) {
+                    data.txt = `${name} mempunyai <span class="highlight">${total}</span> apel. Ia memberikan <span class="highlight">1/2</span> bagian kepada temannya. Berapa apel yang diberikan?`;
+                    data.ans = total / 2;
+                } else {
+                    data.txt = `Panjang sebuah tali adalah <span class="highlight">${total}</span> meter. Ayah memotong <span class="highlight">1/4</span> bagiannya. Berapa meter tali yang dipotong?`;
+                    data.ans = total / 4;
+                }
+            }
+
+            // Generate Opsi Pengecoh
+            let correct = data.ans;
+            let options = new Set([correct]);
+            while(options.size < 5) {
+                let fake = correct + (Math.floor(Math.random() * 10) - 5);
+                if(fake > 0 && fake !== correct) options.add(fake);
+                else options.add(correct + 1.5); // Fallback
+            }
+            
+            data.id = i;
+            data.user = null;
+            data.opsi = Array.from(options).sort(() => Math.random() - 0.5);
+            bankSoal.push(data);
+        }
+    }
+
+    // === SECURITY LOGIC (ANTI-TAB SWITCH) ===
+    let violationCount = 0;
+    const MAX_VIOLATION = 3;
+    let isExamActive = false;
+
+    function mulaiUjian() {
+        // Minta Fullscreen
+        let elem = document.documentElement;
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen().catch(err => {
+                alert("Ujian ini wajib Fullscreen. Izinkan browser untuk Fullscreen.");
+            });
+        }
+
+        // Tampilkan Ujian
+        document.getElementById('lobby-screen').style.display = 'none';
+        document.getElementById('exam-app').style.display = 'block';
+        
+        generateBankSoal();
+        renderSoal();
+        startTimer();
+        
+        isExamActive = true;
+        
+        // Aktifkan Deteksi
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        window.addEventListener("blur", handleBlur);
+    }
+
+    function handleVisibilityChange() {
+        if(!isExamActive) return;
+        if (document.hidden) {
+            triggerViolation();
+        }
+    }
+
+    function handleBlur() {
+        if(!isExamActive) return;
+        // Jeda sedikit untuk menghindari false positive saat klik elemen tertentu
+        setTimeout(() => {
+            if(document.activeElement.tagName === "IFRAME") return; 
+            triggerViolation();
+        }, 100);
+    }
+
+    function triggerViolation() {
+        if(!isExamActive) return;
+        
+        violationCount++;
+        document.getElementById('violation-msg').innerText = `Pelanggaran: ${violationCount}/${MAX_VIOLATION}`;
+        document.getElementById('warning-overlay').style.display = 'flex';
+
+        if(violationCount > MAX_VIOLATION) {
+            isExamActive = false;
+            document.getElementById('warning-overlay').style.display = 'none';
+            alert("MAAF, ANDA TELAH MELANGGAR ATURAN TERLALU BANYAK. UJIAN DIHENTIKAN OTOMATIS.");
+            submitUjian(true); // Force submit
+        }
+    }
+
+    function resumeUjian() {
+        document.getElementById('warning-overlay').style.display = 'none';
+        // Minta fullscreen lagi jaga-jaga
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(()=>{});
+        }
+    }
+
+    // === UI RENDERING ===
+    function renderSoal() {
+        const area = document.getElementById('soal-container');
+        area.innerHTML = '';
+        
+        bankSoal.forEach((item, idx) => {
+            let div = document.createElement('div');
+            div.className = 'card';
+            
+            let html = `
+                <div style="font-weight:bold; color:#64748B; margin-bottom:5px;">Soal No. ${item.id}</div>
+                <div class="q-text">${item.txt}</div>
+                <div class="opt-grid">
+            `;
+            
+            const abc = ['A','B','C','D','E'];
+            item.opsi.forEach((opt, i) => {
+                html += `
+                    <div class="opt-btn" onclick="pilihJawaban(${idx}, ${opt}, this)">
+                        <div class="circle">${abc[i]}</div>
+                        <div>${opt}</div>
+                    </div>
+                `;
+            });
+            
+            html += `</div>`;
+            div.innerHTML = html;
+            area.appendChild(div);
+        });
+    }
+
+    function pilihJawaban(idx, val, el) {
+        bankSoal[idx].user = val;
+        let parent = el.parentElement;
+        for(let child of parent.children) child.classList.remove('selected');
+        el.classList.add('selected');
+    }
+
+    // === TIMER & SUBMIT ===
+    let timeLeft = 60 * 60; // 60 menit
+
+    function startTimer() {
+        let timerElem = document.getElementById('timer');
+        let interval = setInterval(() => {
+            if(!isExamActive) { clearInterval(interval); return; }
+            
+            if(timeLeft > 0) {
+                timeLeft--;
+                let m = Math.floor(timeLeft / 60);
+                let s = timeLeft % 60;
+                timerElem.innerText = `${m}:${s < 10 ? '0'+s : s}`;
+            } else {
+                clearInterval(interval);
+                alert("WAKTU HABIS!");
+                submitUjian(true);
+            }
+        }, 1000);
+    }
+
+    function submitUjian(force = false) {
+        let nama = document.getElementById('nama').value.trim();
+        let kelas = document.getElementById('kelas').value.trim();
+
+        if(!force) {
+            if(!nama || !kelas) { alert("Isi Nama dan Kelas dulu!"); return; }
+            if(!confirm("Yakin ingin menyelesaikan ujian?")) return;
+        }
+
+        isExamActive = false; // Matikan deteksi curang
+        
+        let benar = 0;
+        let salah = 0;
+        bankSoal.forEach(q => {
+            if(Math.abs(q.user - q.ans) < 0.01) benar++;
+            else salah++;
+        });
+
+        let nilai = Math.round((benar / 100) * 100);
+
+        // Tampil Modal
+        document.getElementById('scoreVal').innerText = nilai;
+        document.getElementById('outNama').innerText = nama || "Tanpa Nama";
+        document.getElementById('outBenar').innerText = benar;
+        document.getElementById('outSalah').innerText = salah;
+        document.getElementById('outWarn').innerText = violationCount;
+
+        // Exit Fullscreen
+        if (document.fullscreenElement) {
+            document.exitFullscreen().catch(()=>{});
+        }
+
+        document.getElementById('modalResult').style.display = 'flex';
+    }
+
+    function kirimWA() {
+        let n = document.getElementById('outNama').innerText;
+        let s = document.getElementById('scoreVal').innerText;
+        let b = document.getElementById('outBenar').innerText;
+        let w = document.getElementById('outSalah').innerText;
+        let v = document.getElementById('outWarn').innerText;
+        let k = document.getElementById('kelas').value;
+
+        let txt = `*LAPORAN UJIAN MATEMATIKA (SOAL CERITA)*%0A` +
+                  `---------------------------%0A` +
+                  `👤 Nama: ${n} (${k})%0A` +
+                  `🏆 Nilai: ${s}%0A` +
+                  `✅ Benar: ${b}%0A` +
+                  `❌ Salah: ${w}%0A` +
+                  `⚠️ Pelanggaran: ${v} kali%0A` +
+                  `---------------------------%0A` +
+                  `_Dikirim via Secure Exam Web_`;
+
+        window.open(`https://wa.me/6285890554900?text=${txt}`, '_blank');
+    }
+
+    // Blokir Klik Kanan
+    document.addEventListener('contextmenu', event => event.preventDefault());
+
+</script>
+
+</body>
+</html>
